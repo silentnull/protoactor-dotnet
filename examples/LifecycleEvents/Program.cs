@@ -1,6 +1,6 @@
 ﻿// -----------------------------------------------------------------------
 //  <copyright file="Program.cs" company="Asynkron HB">
-//      Copyright (C) 2015-2017 Asynkron HB All rights reserved
+//      Copyright (C) 2015-2018 Asynkron HB All rights reserved
 //  </copyright>
 // -----------------------------------------------------------------------
 
@@ -14,12 +14,14 @@ class Program
 {
     static void Main(string[] args)
     {
-        var props = Actor.FromProducer(() => new ChildActor());
-        var actor = Actor.Spawn(props);
-        actor.Tell(new Hello
+        var context = new RootContext();
+        var props = Props.FromProducer(() => new ChildActor());
+        var actor = context.Spawn(props);
+        context.Send(actor, new Hello
         {
             Who = "Alex"
         });
+
         //why wait?
         //Stop is a system message and is not processed through the user message mailbox
         //thus, it will be handled _before_ any user message
@@ -34,23 +36,21 @@ class Program
     {
         public Task ReceiveAsync(IContext context)
         {
-            var msg = context.Message;
-
             switch (context.Message)
             {
                 case Hello r:
                     Console.WriteLine($"Hello {r.Who}");
                     break;
-                case Started r:
+                case Started _:
                     Console.WriteLine("Started, initialize actor here");
                     break;
-                case Stopping r:
+                case Stopping _:
                     Console.WriteLine("Stopping, actor is about shut down");
                     break;
-                case Stopped r:
+                case Stopped _:
                     Console.WriteLine("Stopped, actor and it's children are stopped");
                     break;
-                case Restarting r:
+                case Restarting _:
                     Console.WriteLine("Restarting, actor is about restart");
                     break;
             }

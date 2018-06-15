@@ -1,6 +1,6 @@
 ﻿// -----------------------------------------------------------------------
-//   <copyright file="ActorClient.cs" company="Asynkron HB">
-//       Copyright (C) 2015-2017 Asynkron HB All rights reserved
+//   <copyright file="RootContext.cs" company="Asynkron HB">
+//       Copyright (C) 2015-2018 Asynkron HB All rights reserved
 //   </copyright>
 // -----------------------------------------------------------------------
 
@@ -11,28 +11,57 @@ using System.Threading.Tasks;
 
 namespace Proto
 {
-    public class ActorClient : ISenderContext
+    public interface IRootContext : ISpawnContext, ISenderContext
     {
+    }
+    
+    public class RootContext : IRootContext
+    {
+        public static readonly RootContext Empty = new RootContext();
         private readonly Sender _senderMiddleware;
 
-        public ActorClient(MessageHeader messageHeader, params Func<Sender, Sender>[] middleware)
+        public PID Spawn(Props props)
+        {
+            var name = ProcessRegistry.Instance.NextId();
+            return SpawnNamed(props, name);
+        }
+
+        public PID SpawnNamed(Props props, string name)
+        {
+            var parent = props.GuardianStrategy != null ? Guardians.GetGuardianPID(props.GuardianStrategy) : null;
+            return props.Spawn(name, parent);
+        }
+
+        public PID SpawnPrefix(Props props, string prefix)
+        {
+            var name = prefix + ProcessRegistry.Instance.NextId();
+            return SpawnNamed(props, name);
+        }
+
+        public RootContext()
+        {
+            _senderMiddleware = null;
+            Headers = MessageHeader.Empty;
+        }
+
+        public RootContext(MessageHeader messageHeader, params Func<Sender, Sender>[] middleware)
         {
             _senderMiddleware = middleware.Reverse()
-                    .Aggregate((Sender)DefaultSender, (inner, outer) => outer(inner));
+                .Aggregate((Sender) DefaultSender, (inner, outer) => outer(inner));
             Headers = messageHeader;
         }
 
-        public object Message { get => null; set { /* ActorClient is not used to receive messages */ } }
+        public object Message => null;
 
         public MessageHeader Headers { get; }
 
         private Task DefaultSender(ISenderContext context, PID target, MessageEnvelope message)
         {
-            target.Tell(message);
+            target.SendUserMessage(message);
             return Actor.Done;
         }
 
-        public void Tell(PID target, object message)
+        public void Send(PID target, object message)
             => SendUserMessage(target, message);
 
         public void Request(PID target, object message)
@@ -41,7 +70,7 @@ namespace Proto
         public void Request(PID target, object message, PID sender)
         {
             var envelope = new MessageEnvelope(message, sender, null);
-            Tell(target, envelope);
+            Send(target, envelope);
         }
 
         public Task<T> RequestAsync<T>(PID target, object message, TimeSpan timeout)
@@ -57,6 +86,7 @@ namespace Proto
         {
             var messageEnvelope = new MessageEnvelope(message, future.Pid, null);
             SendUserMessage(target, messageEnvelope);
+
             return future.Task;
         }
 
@@ -74,12 +104,10 @@ namespace Proto
                     //tell based middleware
                     _senderMiddleware(this, target, new MessageEnvelope(message, null, null));
                 }
+                return;
             }
-            else
-            {
-                //Default path
-                target.Tell(message);
-            }
+            //Default path
+            target.SendUserMessage(message);
         }
     }
 }

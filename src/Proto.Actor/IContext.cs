@@ -1,17 +1,16 @@
 ﻿// -----------------------------------------------------------------------
 //   <copyright file="IContext.cs" company="Asynkron HB">
-//       Copyright (C) 2015-2017 Asynkron HB All rights reserved
+//       Copyright (C) 2015-2018 Asynkron HB All rights reserved
 //   </copyright>
 // -----------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace Proto
 {
-    public interface IContext : ISenderContext
+    public interface IContext : ISenderContext, IReceiverContext, ISpawnContext
     {
         /// <summary>
         ///     Gets the PID for the parent of the current actor.
@@ -98,8 +97,6 @@ namespace Proto
         void SetReceiveTimeout(TimeSpan duration);
 
         void CancelReceiveTimeout();
-
-        Task ReceiveAsync(object message);
    
         void Forward(PID target);
 
@@ -118,7 +115,7 @@ namespace Proto
         /// <param name="target">the Task to await</param>
         /// <param name="action">the continuation to call once the task is completed</param>
         void ReenterAfter(Task target, Action action);
-
+        
 
     }
 }
